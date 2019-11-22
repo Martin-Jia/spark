@@ -134,7 +134,7 @@ class PCAModel private[spark] (
         for (i <- 0 to (mat.length - 1)) {
           val row = mat(i)
           for (j <- 0 to (row.length - 1)) {
-            doubleArray(i * row.length + j) = row(j)
+            doubleArray(i + row.length * j) = row(j)
           }
         }
         val matrix = new DenseMatrix(mat.length, mat(0).length, doubleArray, false)
@@ -152,7 +152,7 @@ class PCAModel private[spark] (
         for (i <- 0 to (points.length - 1)) {
           val row = points(i).features
           for (j <- 0 to (row.length - 1)) {
-            doubleArray(i * row.length + j) = row(j)
+            doubleArray(i + row.length * j) = row(j)
           }
         }
         val matrix = new DenseMatrix(points.length, points(0).length, doubleArray, false)
