@@ -23,6 +23,7 @@ import org.apache.spark.mllib.linalg._
 import org.apache.spark.mllib.linalg.distributed.RowMatrix
 import org.apache.spark.mllib.stat.Statistics
 import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.regression.{LabeledPoint, LinearRegressionWithSGD}
 
 /**
  * A feature transformer that projects vectors to a low-dimensional space using PCA.
@@ -123,6 +124,46 @@ class PCAModel private[spark] (
         throw new IllegalArgumentException("Unsupported vector format. Expected " +
           s"SparseVector or DenseVector. Instead got: ${vector.getClass}")
     }
+  }
+
+  def transform(data: RDD[Vector]): RDD[Vector] = {
+    val res = data.mapPartitions(
+      (it: Iterator[Vector]) => {
+        val mat = it.toArray
+        val doubleArray = new Array[Double](mat.length * mat(0).length)
+        for (i <- 0 to (mat.length - 1)) {
+          val row = mat(i)
+          for (j <- 0 to (row.length - 1)) {
+            doubleArray(i * row.length + j) = row(j)
+          }
+        }
+        val matrix = new DenseMatrix(mat.length, mat(0).length, doubleArray, false)
+        matrix.multiply(pc).colIter
+      }
+    )
+    res
+  }
+
+  def transform(data: RDD[LabeledPoint]): RDD[LabeledPoint] = {
+    val res = data.mapPartitions(
+      (it: Iterator[LabeledPoint]) => {
+        val points = it.toArray
+        val doubleArray = new Array[Double](points.length * points(0).length)
+        for (i <- 0 to (points.length - 1)) {
+          val row = points(i).features
+          for (j <- 0 to (row.length - 1)) {
+            doubleArray(i * row.length + j) = row(j)
+          }
+        }
+        val matrix = new DenseMatrix(points.length, points(0).length, doubleArray, false)
+        val matrixIter = matrix.multiply(pc).colIter
+        for (i <- 0 to (points.length - 1)) {
+          points[i] = points[i].copy(features = matrixIter.next)
+        }
+        points.iterator
+      }
+    )
+    res
   }
 }
 
